@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Automation Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 20px;
+        }
+        .navbar-brand {
+            font-weight: bold;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .card-header {
+            background-color: #f1f8ff;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background-color: #0d6efd;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+        }
+        .tab-content {
+            padding: 20px;
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+        .nav-tabs .nav-link.active {
+            font-weight: bold;
+        }
+        .table-responsive {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .alert {
+            margin-top: 10px;
+        }
+        .form-floating {
+            margin-bottom: 15px;
+        }
+        .badge {
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h1 class="display-5 fw-bold text-primary">
+                            <i class="fas fa-robot me-2"></i>Test Automation Platform
+                        </h1>
+                        <p class="lead">Automate website login testing, generate test cases, and integrate with Figma</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flash Messages -->
+        <div class="row">
+            <div class="col-12">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+
+        <!-- Main Tabs Navigation -->
+        <div class="row">
+            <div class="col-12">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="test-automation-tab" data-bs-toggle="tab" data-bs-target="#test-automation" type="button" role="tab" aria-controls="test-automation" aria-selected="true">
+                            <i class="fas fa-vial me-2"></i>Test Automation
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="test-generation-tab" data-bs-toggle="tab" data-bs-target="#test-generation" type="button" role="tab" aria-controls="test-generation" aria-selected="false">
+                            <i class="fas fa-magic me-2"></i>Generate Test Cases
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="figma-integration-tab" data-bs-toggle="tab" data-bs-target="#figma-integration" type="button" role="tab" aria-controls="figma-integration" aria-selected="false">
+                            <i class="fas fa-paste me-2"></i>Figma Integration
+                        </button>
+                    </li>
+                </ul>
+                
+                <!-- Tab Content -->
+                <div class="tab-content" id="myTabContent">
+                    <!-- Test Automation Tab -->
+                    <div class="tab-pane fade show active" id="test-automation" role="tabpanel" aria-labelledby="test-automation-tab">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <h3><i class="fas fa-list me-2"></i>Current Test Cases</h3>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addTestCaseModal">
+                                    <i class="fas fa-plus-circle me-1"></i> Add Test Case
+                                </button>
+                                <a href="{{ url_for('run_tests') }}" class="btn btn-primary">
+                                    <i class="fas fa-play me-1"></i> Run Tests
+                                </a>
+                                <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#clearTestsModal">
+                                    <i class="fas fa-trash me-1"></i> Clear All
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Test Cases Table -->
+                        <form id="clearSelectedForm" action="{{ url_for('clear_selected_tests') }}" method="post">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th><input type="checkbox" id="selectAll"></th>
+                                            <th>ID</th>
+                                            <th>Description</th>
+                                            <th>Website URL</th>
+                                            <th>Username</th>
+                                            <th>Password</th>
+                                            <th>Expected</th>
+                                            <th>Result</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if tests %}
+                                            {% for test in tests %}
+                                                <tr>
+                                                    <td><input type="checkbox" name="selected_tests[]" value="{{ test.id }}"></td>
+                                                    <td>{{ test.id }}</td>
+                                                    <td>{{ test.description }}</td>
+                                                    <td>{{ test.website_url }}</td>
+                                                    <td>{{ test.username }}</td>
+                                                    <td>******</td>
+                                                    <td>{{ test.expected }}</td>
+                                                    <td>
+                                                        {% if test.actual_result is defined %}
+                                                            {% if test.actual_result == "Success" %}
+                                                                <span class="badge bg-success">Success</span>
+                                                            {% elif test.actual_result == "Failed" %}
+                                                                <span class="badge bg-danger">Failed</span>
+                                                            {% else %}
+                                                                <span class="badge bg-warning text-dark">{{ test.actual_result }}</span>
+                                                            {% endif %}
+                                                        {% else %}
+                                                            <span class="badge bg-secondary">Not Run</span>
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="8" class="text-center">No test cases added yet.</td>
+                                            </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {% if tests %}
+                                <button type="submit" class="btn btn-outline-danger">
+                                    <i class="fas fa-trash-alt me-1"></i> Clear Selected
+                                </button>
+                            {% endif %}
+                        </form>
+
+                        {% if request.args.get('download_report') %}
+                            <div class="alert alert-success mt-3">
+                                <p><i class="fas fa-file-download me-2"></i> Report is ready for download!</p>
+                                <a href="{{ url_for('download_report', filename=request.args.get('download_report')) }}" class="btn btn-primary">
+                                    <i class="fas fa-download me-1"></i> Download Report
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Generate Test Cases Tab -->
+                    <div class="tab-pane fade" id="test-generation" role="tabpanel" aria-labelledby="test-generation-tab">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header bg-primary text-white">
+                                        <i class="fas fa-magic me-2"></i>Generate Test Cases with AI
+                                    </div>
+                                    <div class="card-body">
+                                        <form action="{{ url_for('generate_test_cases') }}" method="post">
+                                            <div class="mb-3">
+                                                <label for="page_name" class="form-label">Page/Feature Name</label>
+                                                <input type="text" class="form-control" id="page_name" name="page_name" placeholder="Login Page, Registration Form, etc." required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="additional_context" class="form-label">Additional Context (Optional)</label>
+                                                <textarea class="form-control" id="additional_context" name="additional_context" rows="5" placeholder="Describe the page features, functionality, requirements, etc. to get more relevant test cases"></textarea>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fas fa-magic me-1"></i> Generate Test Cases
+                                            </button>
+                                        </form>
+                                        
+                                        <div class="mt-4">
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle me-2"></i> The AI will generate test cases based on the provided information and return a Word document.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Figma Integration Tab -->
+                    <div class="tab-pane fade" id="figma-integration" role="tabpanel" aria-labelledby="figma-integration-tab">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header bg-primary text-white">
+                                        <i class="fab fa-figma me-2"></i>Generate Test Cases from Figma Design
+                                    </div>
+                                    <div class="card-body">
+                                        <form action="{{ url_for('generate_from_figma') }}" method="post">
+                                            <div class="mb-3">
+                                                <label for="figma_file_key" class="form-label">Figma File Key</label>
+                                                <input type="text" class="form-control" id="figma_file_key" name="figma_file_key" placeholder="e.g. aBcDeFgHiJkL" required>
+                                                <div class="form-text">The file key is found in the Figma URL: figma.com/file/<span class="text-danger">aBcDeFgHiJkL</span>/...</div>
+                                            </div>
+                                            <!-- <div class="mb-3">
+                                                <label for="figma_access_token" class="form-label">Figma Access Token</label>
+                                                <input type="password" class="form-control" id="figma_access_token" name="figma_access_token" placeholder="Personal access token" value="{{ figma_token }}">
+                                                <div class="form-text">Get your token from Figma account settings > Personal access tokens</div>
+                                            </div> -->
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fab fa-figma me-1"></i> Generate Test Cases from Figma
+                                            </button>
+                                        </form>
+                                        
+                                        <div class="mt-4">
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle me-2"></i> The system will analyze your Figma design and generate appropriate test cases in a Word document.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <p class="mb-0">Test Automation Platform &copy; 2025</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Test Case Modal -->
+    <div class="modal fade" id="addTestCaseModal" tabindex="-1" aria-labelledby="addTestCaseModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="addTestCaseModalLabel"><i class="fas fa-plus-circle me-2"></i>Add Test Cases</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form action="{{ url_for('add_test_cases') }}" method="post" id="addTestForm">
+                        <div id="test-cases-container">
+                            <div class="test-case-form mb-4 p-3 border rounded bg-light">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="test_id_0" class="form-label">Test ID</label>
+                                            <input type="text" class="form-control" id="test_id_0" name="test_id[]" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="description_0" class="form-label">Description</label>
+                                            <input type="text" class="form-control" id="description_0" name="description[]" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="mb-3">
+                                            <label for="website_url_0" class="form-label">Website URL</label>
+                                            <input type="url" class="form-control" id="website_url_0" name="website_url[]" placeholder="https://example.com/login" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="username_0" class="form-label">Username</label>
+                                            <input type="text" class="form-control" id="username_0" name="username[]" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="password_0" class="form-label">Password</label>
+                                            <input type="password" class="form-control" id="password_0" name="password[]" required>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="username_field_0" class="form-label">Username Field</label>
+                                            <input type="text" class="form-control" id="username_field_0" name="username_field[]" placeholder="username" value="username">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="password_field_0" class="form-label">Password Field</label>
+                                            <input type="text" class="form-control" id="password_field_0" name="password_field[]" placeholder="password" value="password">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label for="submit_button_0" class="form-label">Submit Button</label>
+                                            <input type="text" class="form-control" id="submit_button_0" name="submit_button[]" placeholder="login" value="login">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="success_indicators_0" class="form-label">Success Indicators</label>
+                                            <input type="text" class="form-control" id="success_indicators_0" name="success_indicators[]" placeholder="dashboard,home,profile" value="dashboard,home,profile,welcome,index">
+                                            <div class="form-text">Comma-separated words to identify successful login</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label for="logout_url_0" class="form-label">Logout URL (Optional)</label>
+                                            <input type="text" class="form-control" id="logout_url_0" name="logout_url[]" placeholder="https://example.com/logout">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="mb-3">
+                                            <label for="expected_0" class="form-label">Expected Result</label>
+                                            <select class="form-select" id="expected_0" name="expected[]" required>
+                                                <option value="Success">Success</option>
+                                                <option value="Failed">Failed</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-outline-primary mb-3" id="add-test-case-btn">
+                            <i class="fas fa-plus-circle me-1"></i> Add Another Test Case
+                        </button>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" form="addTestForm" class="btn btn-primary">Save Test Cases</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clear Tests Confirmation Modal -->
+    <div class="modal fade" id="clearTestsModal" tabindex="-1" aria-labelledby="clearTestsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="clearTestsModalLabel"><i class="fas fa-exclamation-triangle me-2"></i>Clear All Test Cases</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to clear all test cases? This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form action="{{ url_for('clear_tests') }}" method="post">
+                        <button type="submit" class="btn btn-danger">Confirm Clear</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Select All Checkbox Functionality
+        document.getElementById('selectAll').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('input[name="selected_tests[]"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+
+        // Add Test Case Button Functionality
+        document.getElementById('add-test-case-btn').addEventListener('click', function() {
+            const container = document.getElementById('test-cases-container');
+            const testCaseCount = container.querySelectorAll('.test-case-form').length;
+            const newIndex = testCaseCount;
+            
+            const testCaseHtml = `
+                <div class="test-case-form mb-4 p-3 border rounded bg-light">
+                    <div class="d-flex justify-content-end mb-2">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-test-case">
+                            <i class="fas fa-times"></i> Remove
+                        </button>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="test_id_${newIndex}" class="form-label">Test ID</label>
+                                <input type="text" class="form-control" id="test_id_${newIndex}" name="test_id[]" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="description_${newIndex}" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="description_${newIndex}" name="description[]" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="website_url_${newIndex}" class="form-label">Website URL</label>
+                                <input type="url" class="form-control" id="website_url_${newIndex}" name="website_url[]" placeholder="https://example.com/login" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="username_${newIndex}" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="username_${newIndex}" name="username[]" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="password_${newIndex}" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="password_${newIndex}" name="password[]" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="username_field_${newIndex}" class="form-label">Username Field</label>
+                                <input type="text" class="form-control" id="username_field_${newIndex}" name="username_field[]" placeholder="username" value="username">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="password_field_${newIndex}" class="form-label">Password Field</label>
+                                <input type="text" class="form-control" id="password_field_${newIndex}" name="password_field[]" placeholder="password" value="password">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="submit_button_${newIndex}" class="form-label">Submit Button</label>
+                                <input type="text" class="form-control" id="submit_button_${newIndex}" name="submit_button[]" placeholder="login" value="login">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="success_indicators_${newIndex}" class="form-label">Success Indicators</label>
+                                <input type="text" class="form-control" id="success_indicators_${newIndex}" name="success_indicators[]" placeholder="dashboard,home,profile" value="dashboard,home,profile,welcome,index">
+                                <div class="form-text">Comma-separated words to identify successful login</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="logout_url_${newIndex}" class="form-label">Logout URL (Optional)</label>
+                                <input type="text" class="form-control" id="logout_url_${newIndex}" name="logout_url[]" placeholder="https://example.com/logout">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="expected_${newIndex}" class="form-label">Expected Result</label>
+                                <select class="form-select" id="expected_${newIndex}" name="expected[]" required>
+                                    <option value="Success">Success</option>
+                                    <option value="Failed">Failed</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Create a div to hold the new test case HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = testCaseHtml;
+            
+            // Append the new test case to the container
+            container.appendChild(tempDiv.firstElementChild);
+            
+            // Add event listeners to the remove buttons
+            setupRemoveButtons();
+        });
+        
+        // Setup Remove Test Case Button Functionality
+        function setupRemoveButtons() {
+            document.querySelectorAll('.remove-test-case').forEach(button => {
+                button.addEventListener('click', function() {
+                    this.closest('.test-case-form').remove();
+                });
+            });
+        }
+        
+        // Initialize tab handling from URL hash
+        document.addEventListener('DOMContentLoaded', function() {
+            // If there's a hash in the URL, activate that tab
+            if (window.location.hash) {
+                const hash = window.location.hash.substring(1);
+                const tabId = `${hash}-tab`;
+                const tab = document.getElementById(tabId);
+                if (tab) {
+                    const bsTab = new bootstrap.Tab(tab);
+                    bsTab.show();
+                }
+            }
+            
+            // When tabs are clicked, update the URL hash
+            const tabLinks = document.querySelectorAll('button[data-bs-toggle="tab"]');
+            tabLinks.forEach(tabLink => {
+                tabLink.addEventListener('shown.bs.tab', function(event) {
+                    const id = event.target.getAttribute('data-bs-target').substring(1);
+                    window.location.hash = id;
+                });
+            });
+        });
+    </script>
+</body>
+</html>
